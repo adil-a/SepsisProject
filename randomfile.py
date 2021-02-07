@@ -33,4 +33,4 @@ THIS_FOLDER2 = os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
 
 # print(outstr1, outstr2, outstr3, outstr4, outstr5, outstr6, outstr7, outstr8, outstr9)
 # print(fileio.pklOpener('newTrainSet.pkl'))
-print(THIS_FOLDER2)
+print(THIS_FOLDER)
