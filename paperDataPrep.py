@@ -3,7 +3,14 @@ from typing import Dict, List, Tuple
 import recordRetrieval
 import pandas as pd
 import random
+import MeanMedianIQR
+import os
 
+AVERAGE_VAL_DICT = fileio.pklOpener("averageFeatureValues.pkl")
+ONE_DIR_UP = os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
+THIS_FOLDER = os.path.dirname(os.path.abspath(__file__))
+
+# no longer used
 def df_instantiator(x: Tuple[str]) -> pd.DataFrame:
     """Creates a dataframe given filename and location.
 
@@ -18,6 +25,7 @@ def df_instantiator(x: Tuple[str]) -> pd.DataFrame:
                         sep='|')
     return dframe
 
+# no longer used
 def file_to_df() -> None:
     """Uses the recordRetrieval.retrieveAllFiles() method to convert the 
     list of file names in the value pair to a list of data frames instead. 
@@ -68,3 +76,82 @@ def new_sets() -> None:
     new_DF = pd.concat(new_set)
     fileio.StraightDumpDir(new_DF, "newTrainSet.pkl")
 
+def flag_adder() -> None:
+    """
+    Augments each psv file so that we replace the NaN values using 
+    fill-forward and the remaining NaN values are replaced with average 
+    values calculated at an earlier point. Additionally, it adds a flag 
+    column for each of the non-constant features (34 of the 40 features are 
+    non-constant). This flag column is used to find the last time data was 
+    recorded for the respective feature. For example:
+    Temp Temp_Flag
+    NaN     8760
+    NaN     8760
+    36.3    0
+    NaN     1
+    37      0
+    NaN     1
+    NaN     2
+    The reason the first two rows of Temp_Flag are so high is because there 
+    are is no previously recorded data for Temp initially, so we set this to 
+    be the number of hours in a year by default (since no patient record 
+    goes that long).
+
+    Args:
+        None
+    
+    Returns:
+        None
+    """
+    training_filenames = fileio.pklOpener("trainSetList.pkl")
+    test_filenames = fileio.pklOpener("testSetList.pkl")
+    for filename in training_filenames:
+        flag_adder_helper(filename, "train")
+    for filename in test_filenames:
+        flag_adder_helper(filename, "test")
+        
+def flag_adder_helper(filename: str, folder_type: str) -> None:
+    """
+    Helper for the function flag_adder. Used to reduce redundant code. This 
+    helper and the main flag_adder function together complete the augmentation 
+    described in the docstring for flag_adder.
+
+    Args:
+        filename: name of the current patient file being processed
+        folder_type: the function stores in the correct directory depending on 
+            if we are currently processing training files or test files.
+    
+    Returns:
+        None
+    """
+    HIGH = 8760
+    df = MeanMedianIQR.df_instantiator(filename)
+    df_null = df.isnull()
+    columns = list(df.columns)[:-7]
+    for column in columns:
+        column_name = f"{column}_Flag"
+        new_column = []
+        initial_value = df_null[column][0]
+        i = 0
+        while initial_value == True:
+            new_column.append(HIGH)
+            i += 1
+            if i >= len(df.index):
+                break
+            else:
+                initial_value = df_null[column][i]
+        hours_since = 0
+        for j in range(i, len(df.index)):
+            if df_null[column][j] == False:
+                hours_since = 0
+                new_column.append(hours_since)
+            else:
+                hours_since += 1
+                new_column.append(hours_since)
+        df[column_name] = new_column
+    df.fillna(method='ffill', inplace=True)
+    df.fillna(value=AVERAGE_VAL_DICT, inplace=True)
+    if folder_type == "train":
+        df.to_csv(THIS_FOLDER + f"/trainingSetAugmented/{filename}", sep="|")
+    elif folder_type == "test":
+        df.to_csv(THIS_FOLDER + f"/testSetAugmented/{filename}", sep="|")
