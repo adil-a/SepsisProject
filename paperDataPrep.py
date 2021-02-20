@@ -155,3 +155,28 @@ def flag_adder_helper(filename: str, folder_type: str) -> None:
         df.to_csv(THIS_FOLDER + f"/trainingSetAugmented/{filename}", sep="|")
     elif folder_type == "test":
         df.to_csv(THIS_FOLDER + f"/testSetAugmented/{filename}", sep="|")
+
+def train_test_df_creator() -> None:
+    """
+    Creates and stores the train/test dataframes from the augmented dataset
+
+    Args:
+        None
+    
+    Returns:
+        None
+    """
+    train_set_list = os.listdir(THIS_FOLDER + "/trainingSetAugmented")
+    test_set_list = os.listdir(THIS_FOLDER + "/testSetAugmented")
+    train_frames = []
+    test_frames = []
+    for filename in train_set_list:
+        df = df_instantiator(("trainingSetAugmented", filename))
+        train_frames.append(df)
+    for filename in test_set_list:
+        df = df_instantiator(("testSetAugmented", filename))
+        test_frames.append(df)
+    trainSetDF = pd.concat(train_frames)
+    testSetDF = pd.concat(test_frames)
+    fileio.StraightDumpDir(trainSetDF, THIS_FOLDER + "/trainingSetAugmentedDF.pkl")
+    fileio.StraightDumpDir(testSetDF, THIS_FOLDER + "/testSetAugmentedDF.pkl")

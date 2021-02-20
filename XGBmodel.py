@@ -12,12 +12,14 @@ from typing import Dict, Any
 import os
 
 ONE_DIR_UP = os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
+THIS_FOLDER = os.path.dirname(os.path.abspath(__file__))
+
 dftrainX = fileio.pklOpener(ONE_DIR_UP + '/trainSetDForiginal.pkl')
 dftestX = fileio.pklOpener(ONE_DIR_UP + '/testSetDForiginal.pkl')
 dftrainY = dftrainX['SepsisLabel']
 dftestY = dftestX['SepsisLabel']
-dftrainX.drop(['SepsisLabel', 'Filename'], axis=1, inplace=True)
-dftestX.drop(['SepsisLabel', 'Filename'], axis=1, inplace=True)
+dftrainX.drop(['SepsisLabel'], axis=1, inplace=True)
+dftestX.drop(['SepsisLabel'], axis=1, inplace=True)
 columns = list(dftrainX.columns)
 trainX = dftrainX.to_numpy()
 trainY = dftrainY.to_numpy().reshape(dftrainY.shape[0], 1)
