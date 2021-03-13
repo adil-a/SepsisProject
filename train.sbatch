@@ -6,7 +6,7 @@
 #SBATCH --cpus-per-task=40              # Number of CPU cores per task
 #SBATCH --gres=gpu:0                    # Number of GPU per task in the node
 #SBATCH --mem=256GB                     # Job memory request
-#SBATCH --output=hyp_src_1.log          # Standard output and error log
+#SBATCH --output=XGBmodel_training.log  # Standard output and error log
 
 # Setup
 export NCCL_DEBUG=INFO 

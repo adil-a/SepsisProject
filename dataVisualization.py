@@ -1,6 +1,7 @@
 import fileio
 from matplotlib import pyplot as plt
 import pandas as pd
+import os
 
 ONE_DIR_UP = os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
 trainDF = fileio.pklOpener(ONE_DIR_UP + '/trainSetDForiginal.pkl')

@@ -21,7 +21,7 @@ def df_instantiator(x: Tuple[str]) -> pd.DataFrame:
     Returns:
         A dataframe created from the patient record stored under that filename
     """
-    dframe = pd.read_csv(recordRetrieval.THIS_FOLDER + f'/{x[0]}/{x[1]}', 
+    dframe = pd.read_csv(THIS_FOLDER + f'/{x[0]}/{x[1]}', 
                         sep='|')
     return dframe
 
@@ -168,15 +168,23 @@ def train_test_df_creator() -> None:
     """
     train_set_list = os.listdir(THIS_FOLDER + "/trainingSetAugmented")
     test_set_list = os.listdir(THIS_FOLDER + "/testSetAugmented")
-    train_frames = []
+    train_frames_1 = []
+    train_frames_2 = []
     test_frames = []
-    for filename in train_set_list:
-        df = df_instantiator(("trainingSetAugmented", filename))
-        train_frames.append(df)
+    for i in range(0, len(train_set_list) // 2):
+        df = df_instantiator(("trainingSetAugmented", train_set_list[i]))
+        train_frames_1.append(df)
+    for i in range(len(train_set_list) // 2, len(train_set_list)):
+        df = df_instantiator(("trainingSetAugmented", train_set_list[i]))
+        train_frames_2.append(df)
     for filename in test_set_list:
         df = df_instantiator(("testSetAugmented", filename))
         test_frames.append(df)
-    trainSetDF = pd.concat(train_frames)
+    trainSetDF_batch1 = pd.concat(train_frames_1)
+    trainSetDF_batch2 = pd.concat(train_frames_2)
     testSetDF = pd.concat(test_frames)
-    fileio.StraightDumpDir(trainSetDF, THIS_FOLDER + "/trainingSetAugmentedDF.pkl")
+    fileio.StraightDumpDir(trainSetDF_batch1, THIS_FOLDER + "/trainingSetAugmentedDF_batch1.pkl")
+    fileio.StraightDumpDir(trainSetDF_batch2, THIS_FOLDER + "/trainingSetAugmentedDF_batch2.pkl")
     fileio.StraightDumpDir(testSetDF, THIS_FOLDER + "/testSetAugmentedDF.pkl")
+
+# train_test_df_creator()
