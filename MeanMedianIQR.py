@@ -184,7 +184,7 @@ def l10RowsSepsis(lst: List[str]) -> List[int]:
         returns a list of 
     """
     return_lst = []
-    for i in range(len(lst)):
+    for _ in range(len(lst)):
         return_lst.append(7)
     return return_lst
 
