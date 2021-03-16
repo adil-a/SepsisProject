@@ -1,11 +1,17 @@
+#%%
+
 import pandas as pd
 import fileio
 import os
-import seaborn as sb
+import altair as alt
 from typing import Tuple
 
+alt.renderers.enable('altair_viewer')
 ONE_DIR_UP = os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
 THIS_FOLDER = os.path.dirname(os.path.abspath(__file__))
+model = fileio.pklOpener(THIS_FOLDER + "/XGBmodel.pkl")
+AVERAGE_VAL_DICT = fileio.pklOpener(THIS_FOLDER + "/averageFeatureValues.pkl")
+
 
 presented_files = ['p009573.psv', 'p115835.psv', 'p111537.psv', 'p118804.psv']
 
@@ -49,7 +55,6 @@ def t_sepsis_col_adder(filename: str) -> pd.DataFrame:
     Returns:
         Returns a dataframe with the new column
     """
-    # df = df_instantiator_augmented(("testSetAugmented", filename))
     df = df_instantiator_unaugmented(filename)
     number_of_sepsis_hours = df['SepsisLabel'].sum()
     if number_of_sepsis_hours > 0:
@@ -71,6 +76,52 @@ def t_sepsis_col_adder(filename: str) -> pd.DataFrame:
         df['T_EndRecording'] = temp_list
     return df
 
+def preprocessor(filename: str) -> pd.DataFrame:
+    """
+    Creates and processes the dataframe for the passed in filename so 
+    it contains the feature engineered features as well as processes NaN 
+    values.
+
+    Args:
+        filename: name of the current patient file being processed
+    
+    Returns:
+        the processed dataframe
+    """
+    HIGH = 8760
+    df = df_instantiator_unaugmented(filename)
+    df_null = df.isnull()
+    columns = list(df.columns)[:-7]
+    for column in columns:
+        column_name = f"{column}_Flag"
+        new_column = []
+        initial_value = df_null[column][0]
+        i = 0
+        while initial_value == True:
+            new_column.append(HIGH)
+            i += 1
+            if i >= len(df.index):
+                break
+            else:
+                initial_value = df_null[column][i]
+        hours_since = 0
+        for j in range(i, len(df.index)):
+            if df_null[column][j] == False:
+                hours_since = 0
+                new_column.append(hours_since)
+            else:
+                hours_since += 1
+                new_column.append(hours_since)
+        df[column_name] = new_column
+    df.fillna(method='ffill', inplace=True)
+    df.fillna(value=AVERAGE_VAL_DICT, inplace=True)
+    
+    artifact = []
+    for i in range(len(df.index)):
+        artifact.append(i)
+    df.insert(loc=0, column='Unnamed: 0', value=artifact)
+    return df
+
 def scatter_plotter(filename: str) -> None:
     """Takes in a file name and creates the scatter plot required for that file
 
@@ -78,21 +129,58 @@ def scatter_plotter(filename: str) -> None:
         filename: name of the given file
     """
     df = t_sepsis_col_adder(filename)
-    # df.drop(['Unnamed: 0'], axis=1, inplace=True)
-    # print(df)
     if df['SepsisLabel'].sum() > 0:
         cols = list(df.columns)
-        cols.remove("T_Sepsis")
-        g = sb.lineplot(x='T_Sepsis', y=cols, data=df)
-        g.invert_xaxis()
-        g.plot()
-        plt = g.get_figure()
-        plt.savefig("test.png")
+        cols_to_remove = ['Age', 'Gender', 'Unit1', 'Unit2', 'T_Sepsis', 'SepsisLabel', 'HospAdmTime']
+        for col in cols:
+            if df[col].isnull().all():
+                cols_to_remove.append(col)
+        for col in cols_to_remove:
+            cols.remove(col)
+        col_l, col_r = cols[:len(cols) // 2], cols[len(cols) // 2:]
+        chart_l = alt.Chart(df).mark_line(point=True).encode(
+            alt.X(alt.repeat("column"), type='quantitative', 
+                  sort="descending", title="Time Till Sepsis"),
+            alt.Y(alt.repeat("row"), type='quantitative', 
+                  scale=alt.Scale(zero=False)),
+            order="T_Sepsis"
+        ).properties(
+            width=600,
+            height=100
+        ).repeat(
+            row=col_l,
+            column=['T_Sepsis']
+        )
+        chart_l.save("chart_l.png")
+        
+        chart_r = alt.Chart(df).mark_line(point=True).encode(
+            alt.X(alt.repeat("column"), type='quantitative', 
+                  sort="descending", title="Time Till Sepsis"),
+            alt.Y(alt.repeat("row"), type='quantitative', 
+                  scale=alt.Scale(zero=False)),
+            order="T_Sepsis"
+        ).properties(
+            width=600,
+            height=100
+        ).repeat(
+            row=col_r,
+            column=['T_Sepsis']
+        )
+        chart_r.save("chart_r.png")
+        chart_concat = alt.hconcat(chart_l, chart_r)
+        chart_concat.save("chart_concat.png")
+        
+        processed_df = preprocessor(filename)
+        # Y_pre = processed_df['SepsisLabel']
+        processed_df.drop(['SepsisLabel'], axis=1, inplace=True)
+        X = processed_df.to_numpy()
+        # Y = Y_pre.to_numpy().reshape(Y_pre.shape[0], 1)
+        out = model.predict_proba(X)
+        print(out)
     else:
         pass
         
 # df = t_sepsis_col_adder('p009573.psv')
 # print(df[['Temp', 'HR']])
 scatter_plotter('p009573.psv')
-# fmri = sb.load_dataset("fmri")
-# print(fmri)
+# %%

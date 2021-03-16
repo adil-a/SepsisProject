@@ -2,6 +2,6 @@
 __pycache__
 *.pkl
 *.log
-randomfile.py
 RunningModel.py
 !XGBmodel.pkl
+!averageFeatureValues.pkl

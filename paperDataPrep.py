@@ -6,9 +6,10 @@ import random
 import MeanMedianIQR
 import os
 
-AVERAGE_VAL_DICT = fileio.pklOpener("averageFeatureValues.pkl")
+
 ONE_DIR_UP = os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
 THIS_FOLDER = os.path.dirname(os.path.abspath(__file__))
+AVERAGE_VAL_DICT = fileio.pklOpener(THIS_FOLDER + "/averageFeatureValues.pkl")
 
 # no longer used
 def df_instantiator(x: Tuple[str]) -> pd.DataFrame:
