@@ -1,10 +1,9 @@
-#%%
-
 import pandas as pd
 import fileio
 import os
 import altair as alt
-from typing import Tuple
+import streamlit as st
+from typing import Tuple, Optional
 
 alt.renderers.enable('altair_viewer')
 ONE_DIR_UP = os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
@@ -46,20 +45,30 @@ def df_instantiator_augmented(x: Tuple[str]) -> pd.DataFrame:
                         sep='|')
     return dframe
 
-def t_sepsis_col_adder(filename: str) -> pd.DataFrame:
+def t_sepsis_col_adder(filename: str, dataframe: Optional[pd.DataFrame] = None) -> pd.DataFrame:
     """Adds a column that gives the time till t_sepsis at each time step.
 
     Args:
         filename: name of the file being processed
+        dataframe: added for generalization of function so we can pass a 
+        df and add this new column to it
 
     Returns:
         Returns a dataframe with the new column
     """
-    df = df_instantiator_unaugmented(filename)
-    number_of_sepsis_hours = df['SepsisLabel'].sum()
+    if dataframe is not None:
+        df = dataframe
+        temp_df = df_instantiator_unaugmented(filename)
+        number_of_sepsis_hours = temp_df['SepsisLabel'].sum()
+    else:
+        df = df_instantiator_unaugmented(filename)
+        number_of_sepsis_hours = df['SepsisLabel'].sum()
     if number_of_sepsis_hours > 0:
         if number_of_sepsis_hours >= 7:
-            first_occurrence = df['SepsisLabel'].idxmax()
+            if 'Prediction' in list(df.columns):
+                first_occurrence = temp_df['SepsisLabel'].idxmax()
+            else:
+                first_occurrence = df['SepsisLabel'].idxmax()
             t_sepsis = first_occurrence + 6
         else:
             t_sepsis = len(df.index) - 1
@@ -134,7 +143,8 @@ def scatter_plotter(filename: str) -> None:
         cols_to_remove = ['Age', 'Gender', 'Unit1', 'Unit2', 'T_Sepsis', 'SepsisLabel', 'HospAdmTime']
         for col in cols:
             if df[col].isnull().all():
-                cols_to_remove.append(col)
+                if col not in cols_to_remove:
+                    cols_to_remove.append(col)
         for col in cols_to_remove:
             cols.remove(col)
         col_l, col_r = cols[:len(cols) // 2], cols[len(cols) // 2:]
@@ -171,16 +181,80 @@ def scatter_plotter(filename: str) -> None:
         chart_concat.save("chart_concat.png")
         
         processed_df = preprocessor(filename)
-        # Y_pre = processed_df['SepsisLabel']
         processed_df.drop(['SepsisLabel'], axis=1, inplace=True)
         X = processed_df.to_numpy()
-        # Y = Y_pre.to_numpy().reshape(Y_pre.shape[0], 1)
-        out = model.predict_proba(X)
-        print(out)
-    else:
-        pass
+        out = model.predict_proba(X)[:, 1]
+        pred_df_temp = pd.DataFrame(out, columns=['Prediction'])
+        pred_df = t_sepsis_col_adder(filename, pred_df_temp)
+        chart_lower = alt.Chart(pred_df).mark_line(point=True).encode(
+            alt.X("T_Sepsis", sort="descending", title="Time Till Sepsis"),
+            y="Prediction",
+            color=alt.Color("Prediction")
+        ).properties(
+            width=1275,
+            height=100
+        )
         
-# df = t_sepsis_col_adder('p009573.psv')
-# print(df[['Temp', 'HR']])
-scatter_plotter('p009573.psv')
-# %%
+        main_chart = alt.vconcat(chart_concat, chart_lower)
+        main_chart.save("main_chart.png")
+    else:
+        cols = list(df.columns)
+        cols_to_remove = ['Age', 'Gender', 'Unit1', 'Unit2', 'T_EndRecording', 'SepsisLabel', 'HospAdmTime']
+        for col in cols:
+            if df[col].isnull().all():
+                if col not in cols_to_remove:
+                    cols_to_remove.append(col)
+        for col in cols_to_remove:
+            cols.remove(col)
+        col_l, col_r = cols[:len(cols) // 2], cols[len(cols) // 2:]
+        chart_l = alt.Chart(df).mark_line(point=True).encode(
+            alt.X(alt.repeat("column"), type='quantitative', 
+                  sort="descending", title="Time Till End of Recording"),
+            alt.Y(alt.repeat("row"), type='quantitative', 
+                  scale=alt.Scale(zero=False)),
+            order="T_EndRecording"
+        ).properties(
+            width=600,
+            height=100
+        ).repeat(
+            row=col_l,
+            column=['T_EndRecording']
+        )
+        
+        chart_r = alt.Chart(df).mark_line(point=True).encode(
+            alt.X(alt.repeat("column"), type='quantitative', 
+                  sort="descending", title="Time Till End of Recording"),
+            alt.Y(alt.repeat("row"), type='quantitative', 
+                  scale=alt.Scale(zero=False)),
+            order="T_EndRecording"
+        ).properties(
+            width=600,
+            height=100
+        ).repeat(
+            row=col_r,
+            column=['T_EndRecording']
+        )
+        chart_concat = alt.hconcat(chart_l, chart_r)
+        chart_concat.save("chart_concat.png")
+        
+        processed_df = preprocessor(filename)
+        processed_df.drop(['SepsisLabel'], axis=1, inplace=True)
+        X = processed_df.to_numpy()
+        out = model.predict_proba(X)[:, 1]
+        pred_df_temp = pd.DataFrame(out, columns=['Prediction'])
+        pred_df = t_sepsis_col_adder(filename, pred_df_temp)
+        chart_lower = alt.Chart(pred_df).mark_line(point=True).encode(
+            alt.X("T_EndRecording", sort="descending", title="Time Till End of Recording"),
+            y="Prediction",
+            color=alt.Color("Prediction")
+        ).properties(
+            width=1275,
+            height=100
+        )
+        
+        main_chart = alt.vconcat(chart_concat, chart_lower)
+        main_chart.save("main_chart.png")
+
+st.title("Sepsis Prediction Model")
+st.header("Dataframe")
+st.write(df_instantiator_unaugmented('p009573.psv'))
